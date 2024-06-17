@@ -122,12 +122,22 @@ Under the Jython Evaluator Config, enter the script:
 ```
 try: 
   for record in records:
+    # Extract the credit card number from the current record
     cc = record.value['credit_card']
+    
+    # Check if the credit card number is empty
     if cc == '':
+      # Write an error message if the credit card number is empty and continue to the next record
       error.write(record, "Payment type was CRD, but credit card was null")
       continue
 
+    # Mask the credit card number by replacing all but the last four digits with asterisks
+    masked_cc = '*' * (len(cc) - 4) + cc[-4:]
+
+    # Initialize the credit card type as an empty string
     cc_type = ''
+    
+    # Determine the credit card type based on the starting digits of the credit card number
     if cc.startswith('4'):
       cc_type = 'Visa'
     elif cc.startswith(('51','52','53','54','55')):
@@ -143,11 +153,19 @@ try:
     else:
       cc_type = 'Other'
 
+    # Update the record with the determined credit card type
     record.value['credit_card_type'] = cc_type
+    
+    # Update the record with the masked credit card number
+    record.value['credit_card'] = masked_cc
 
+    # Write the updated record to the output
     output.write(record)
+
 except Exception as e:
+  # Write the record and the exception message to the error output if an exception occurs
   error.write(record, e.message)
+
 ```
 
 <b>Expression Evaluator (1)<b>
