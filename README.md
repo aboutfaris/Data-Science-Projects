@@ -4,12 +4,11 @@
 [Video Implementation](https://www.youtube.com/watch?v=kqVJjWjjOyc&ab_channel=FarisNabeel)
 
 
-<h1>Building a Data Pipeline in Windows 10</h1>
+# Building a Data Pipeline in Windows 10
 
-What is StreamSets Data Collector is a lightweight engine used to stream data in real time. 
-It can be used to route and process data in your data streams.
+StreamSets Data Collector is a lightweight engine used to stream data in real time. It can be used to route and process data in your data streams.
 
-The purpose of this document is to show a general step by step process of how to setup StreamSets Data Collector and utilise it in Linux via Windows 10 without dual booting. Originally, I planned to use Windows Subsetting Linux (WSL) through Visual Studios Code (VSC). This attempt worked but was time consuming to set up for notation. Perhaps, I will create a seperate repository demonstrating WSL through VSC. 
+This document is a general step-by-step guide for setting up StreamSets Data Collector and using it on Linux via Windows 10 without dual-booting. I originally planned to use Windows Subsystem for Linux (WSL) through Visual Studio Code, which worked but took longer to set up than expected. I may create a separate repository demonstrating that WSL/VS Code approach in the future.
 
 <h2>Environments and Technologies Used</h2>
 
@@ -24,20 +23,15 @@ The purpose of this document is to show a general step by step process of how to
 
 - [Ubuntu Linux 22.04.1 LTS](https://apps.microsoft.com/store/detail/ubuntu-22041-lts/9PN20MSR04DW?hl=en-gb&gl=gb) 
 
-<h2>Phases</h2>
+## Phases
 
-- Set Up
->Environments>Deployments>Engines>Connections
-- Build
->Fragments> Pipelines> Sample Pipelines
-- Run
->Job Templates> Job Instances> Scheduled Tasks> Draft Runs
-- Monitor
->Operations Dashboard> Topologies Dashboard> Subscriptions> Topologies> Reports> Alerts
--Manage
-> My Organisation> Users> Groups> Audis> API Credentials
+- **Set Up**: Environments > Deployments > Engines > Connections
+- **Build**: Fragments > Pipelines > Sample Pipelines
+- **Run**: Job Templates > Job Instances > Scheduled Tasks > Draft Runs
+- **Monitor**: Operations Dashboard > Topologies Dashboard > Subscriptions > Topologies > Reports > Alerts
+- **Manage**: My Organisation > Users > Groups > Audit > API Credentials
 
-<h3>Set Up Phase I</h3>
+### Set Up, Phase I
 
 First I downloaded the ISO file of Ubuntu 22.04.1 LTS and installed it into VM Workstation. 
 
@@ -85,9 +79,9 @@ Afterwards, ```bin/streamsets dc``` is used to allow us to access the localhost 
 
 
 
-<h3>Configuration and Running Pipeline, Phase II</h3>
+### Configuration and Running Pipeline, Phase II
 
-<b>Now the setup Phase is over and Data collectors is deployed, its time to create a pipeline, configure it and run a sample dataset.<b>
+Now that setup is complete and Data Collector is deployed, it's time to create a pipeline, configure it, and run a sample dataset.
 
 ![vmware_0NyxDaoVLR](https://user-images.githubusercontent.com/109401839/216791622-4772eda6-c656-43d3-8a34-496647a75183.png)
 
@@ -229,7 +223,7 @@ In the end, the Field Type Converter should look something like this.
 
 
 
-<h3>Data Maniuplation<h3>
+### Data Manipulation
 
 Under Expression Evaluator (2) Configuration , Expressions Tab
 
