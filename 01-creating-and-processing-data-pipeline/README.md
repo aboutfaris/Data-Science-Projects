@@ -1,4 +1,4 @@
-# Building a Data Pipeline in Windows 10
+# Creating & Processing Data Pipeline
 
 Run StreamSets Data Collector in an Ubuntu VM on Windows 10 (no dual boot) and build a pipeline that masks credit card numbers, converts field types, and adds calculated fields to the NYC taxi sample data. [Video walkthrough](https://www.youtube.com/watch?v=kqVJjWjjOyc)
 
