@@ -85,7 +85,7 @@ Run the notebooks in this order. Each one builds on the output of the one before
 
     Expected result: each model prints its best parameters and test accuracy, and 4 confusion matrices render so you can compare the models.
 
-The slide deck that summarizes the results is `SpaceX-DS-Capstone-Presentation.pptx`.
+A written summary of the capstone presentation and its results is in [CAPSTONE-SUMMARY.md](./CAPSTONE-SUMMARY.md).
 
 ## What I learned
 

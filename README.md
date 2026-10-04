@@ -15,4 +15,4 @@ The diagram shows how data moves through each of the 3 projects, from sources an
 
 Each folder is a self-contained project with its own README.md. Open the folder, install what its "What you'll use" section lists, and work through the numbered steps in order. Commands in a section's README run from inside that section's folder.
 
-Notebook output charts are kept inside the `.ipynb` files, and the SpaceX Falcon-9 slide deck is kept as `03-spacex-falcon-9/SpaceX-DS-Capstone-Presentation.pptx`.
+Notebook output charts are kept inside the `.ipynb` files, and the SpaceX Falcon-9 capstone presentation is summarized in [03-spacex-falcon-9/CAPSTONE-SUMMARY.md](./03-spacex-falcon-9/CAPSTONE-SUMMARY.md).
