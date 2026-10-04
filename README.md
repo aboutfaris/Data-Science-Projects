@@ -16,3 +16,9 @@ The diagram shows how data moves through each of the 3 projects, from sources an
 Each folder is a self-contained project with its own README.md. Open the folder, install what its "What you'll use" section lists, and work through the numbered steps in order. Commands in a section's README run from inside that section's folder.
 
 Notebook output charts are kept inside the `.ipynb` files, and the SpaceX Falcon-9 capstone presentation is summarized in [03-spacex-falcon-9/CAPSTONE-SUMMARY.md](./03-spacex-falcon-9/CAPSTONE-SUMMARY.md).
+
+## License
+
+Code and scripts in this repository are licensed under the MIT License (see [LICENSE](LICENSE)). Written guides and diagrams are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Third-party material keeps its original license and is excluded from both:
+
+- The IBM Skills Network course notebooks and course-provided material in `02-data-science-collection/` and `03-spacex-falcon-9/` (lab instructions, starter code, and datasets) remain under IBM's terms. Only my own additions to them are covered above.
