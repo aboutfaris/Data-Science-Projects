@@ -2,6 +2,9 @@
 
 Follow-along data science and analytics projects: building a streaming data pipeline, collecting and cleaning data from APIs and web pages, exploring it with SQL, charts, and maps, and training prediction models.
 
+![Data Science Set architecture](assets/architecture.png)
+The diagram shows how data moves through each of the 3 projects, from sources and collection through cleaning, SQL queries, charts, and prediction models.
+
 | Section | What you'll build | Folder |
 |---|---|---|
 | Creating & Processing Data Pipeline | A StreamSets Data Collector pipeline in an Ubuntu VM that masks credit card numbers, converts field types, and adds calculated fields to NYC taxi data | [01-creating-and-processing-data-pipeline](./01-creating-and-processing-data-pipeline/) |
