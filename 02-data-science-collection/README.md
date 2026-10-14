@@ -2,6 +2,9 @@
 
 Data science practice projects from my data analytics learning path: collecting data from APIs and web pages, cleaning it, exploring it with SQL, charts, and maps, and building simple prediction models. The main project is the SpaceX Falcon 9 landing prediction capstone in `SpaceX Project/`.
 
+![Data Science Collection architecture](assets/architecture.png)
+The diagram groups the practice projects by data source and output, from the SpaceX, stock, and housing notebooks to the two Dash dashboards.
+
 ## What you'll use
 
 - Python 3 with Jupyter (JupyterLab or Notebook)
