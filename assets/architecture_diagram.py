@@ -1,229 +1,515 @@
-"""Build the Data Science Set data-flow diagram (SVG + PNG).
+#!/usr/bin/env python3
+"""Data Science Set: repo-level overview architecture diagram.
 
-Hand-built SVG on an aligned grid, rendered to PNG with rsvg-convert.
-Style follows the architecture standard (white canvas, no fills, dashed
-unfilled groups, orthogonal solid lines with filled arrowheads), adapted to a
-left-to-right data flow. Real logos are used only where a legitimate one ships
-with the `diagrams` package (Python, Ubuntu); every other tool is a
-labeled box. Stages per lane come from notes.md (verified against the repo).
-No branding, hosts, credentials, or personal data appear in the output.
+One boundary, one unfilled dashed group per project lane, icons on a shared slot grid
+(one column per pipeline stage), right-angle lines with no crossings, and numbered steps
+with a plain-English legend. Every helper and layout check is shared with the section
+diagrams in 01, 02, and 03; only the EDIT blocks are scoped to the root README. Node
+labels may carry up to three lines here so each stage keeps its tools and outputs.
+Data-science parts with no official icon are drawn as stroke-only outline glyphs.
+
+Set up once:  python3 -m venv .venv
+              .venv/bin/pip install diagrams==0.25.1
+              brew install librsvg                                  (rsvg-convert)
+Run:          .venv/bin/python assets/architecture_diagram.py assets/architecture
+It writes <out>.svg and <out>.png and must print "layout problems: none".
 """
 import base64
+import math
+import os
 import subprocess
 import sys
-from html import escape
-from pathlib import Path
 
 import diagrams
 
-HERE = Path(__file__).resolve().parent
-SVG_OUT = HERE / "architecture.svg"
-PNG_OUT = HERE / "architecture.png"
-RSVG = "/opt/homebrew/bin/rsvg-convert"
-RES = Path(diagrams.__file__).resolve().parent.parent / "resources"
-LOGOS = {
-    "python": RES / "programming/language/python.png",
-    "ubuntu": RES / "generic/os/ubuntu.png",
+R = os.path.join(os.path.dirname(os.path.dirname(diagrams.__file__)), "resources")
+OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/arch"
+OUT_SVG, OUT_PNG = OUT + ".svg", OUT + ".png"
+
+# ---------------- style ----------------
+FONT = "Helvetica Neue, Helvetica, Arial, sans-serif"
+INK, TEXT2, LINE, GROUP, BADGE, RULE, ACCENT = (
+    "#232F3E", "#545B64", "#3F4752", "#7D8998", "#146EB4", "#E3E6EA", "#8C4FFF")
+ICON, HALF = 52, 26
+ZOOM = 2  # PNG width = W * ZOOM; rendered at 2x for sharpness, GitHub scales it to fit
+# ---------------- EDIT: line kinds ----------------
+KINDS = {  # stroke, width, dash, arrowhead marker, legend label
+    "service": (LINE, 1.6, None, "ah", "Data handed to the next stage of the project"),
+    "external": (LINE, 1.6, "6 5", "ah", "Outside data source pulled into the project"),
+    "business": (ACCENT, 2.2, None, "ahb", "Not used"),
 }
 
-# Canvas and grid
-W = 1440
-FONT = "Helvetica Neue, Helvetica, Arial, sans-serif"
-INK, BODY, MUTED, GROUP = "#232F3E", "#545B64", "#7D8998", "#7D8998"
-LINE = "#3F4752"
+# ---------------- EDIT: canvas text ----------------
+W, H = 1900, 1145
+TITLE = "Data Science Set | How Data Moves Through the 3 Projects"
+SUBTITLE = ("Read each project lane left to right: where the data comes from, how it is collected and cleaned, "
+            "where it is stored and queried, then the charts and prediction models.")
+CLOUD, REGION = "Data pipeline and analysis environment", "Ubuntu VM, Jupyter notebooks, and IBM Db2 on Cloud"
+TILE = "dataset"
+FOOTER_L, FOOTER_R = "aboutfaris", "October 2026"
+
+# ---------------- EDIT: grid ----------------
+AX0, AX1, AY0, AY1 = 230, 1870, 110, 845             # the one boundary
+COLS = [(250, 1850)]                                  # one full-width group per project lane
 STAGES = ["Sources", "Ingest / Collect", "Wrangle / Clean", "Store / Query",
           "Analyze / Visualize", "Model / Predict"]
-LANE_X, LANE_W = 20, W - 40
-LABEL_X, LABEL_W = 34, 128          # lane title column inside the lane
-COL_X0, COL_W, BOX_W = 176, 210, 184
-TOP = 132                            # top of first lane
-LANE_GAP = 18
-BOX_PAD = 16                         # box inset from lane top and bottom
-LOGO = 22
+SX = [115] + [round(250 + 320 * (i + 0.5)) for i in range(5)]  # stage slots: 410 730 1050 1370 1690
+HY = 162                                              # stage header row
+LANES = [(180, 385), (400, 605), (620, 825)]          # lane groups (y0, y1), equal heights
+LY_ = [y0 + 100 for y0, _ in LANES]                   # icon lane (center y) per project
 
-# Each lane: title, {stage_index: (title, [lines], [logos])}
-LANES = [
-    ("01 Creating & Processing Data Pipeline", {
-        0: ("NYC taxi CSV", ["sample trip data", "read by Directory origin"], []),
-        1: ("StreamSets", ["Data Collector 3.22.3", "in an Ubuntu VM", "on VMware Workstation"], ["ubuntu"]),
-        2: ("Pipeline stages", ["Stream Selector (card)", "Jython + Field Masker", "type and field converters"], []),
-        3: ("Local FS", ["masked out_ files", "non-card rows to Trash"], []),
-    }),
-    ("02 Data Science Collection", {
-        0: ("APIs, web, CSVs", ["SpaceX API, Wikipedia", "yfinance, stock pages", "course datasets"], []),
-        1: ("Collect", ["requests, BeautifulSoup", "pandas.read_html", "yfinance"], ["python"]),
-        2: ("pandas", ["clean and reshape", "DataFrames to CSV"], ["python"]),
-        3: ("IBM Db2 on Cloud", ["SQL EDA with %sql", "(SpaceX notebooks)"], []),
-        4: ("Charts, dashboards", ["seaborn, matplotlib", "Plotly, Folium map", "Dash: SpaceX, Airline"], []),
-        5: ("scikit-learn", ["landing classifiers", "house price regression"], []),
-    }),
-    ("03 SpaceX Falcon-9", {
-        0: ("SpaceX REST API v4", ["Wikipedia Falcon 9", "launch tables"], []),
-        1: ("Collect", ["requests, BeautifulSoup", "dataset_part_1.csv", "spacex_web_scraped.csv"], ["python"]),
-        2: ("Wrangle (pandas)", ["Class landing label", "one-hot features", "dataset_part_2/3.csv"], ["python"]),
-        3: ("IBM Db2 on Cloud", ["SQL EDA queries"], []),
-        4: ("Visualize", ["seaborn, matplotlib", "Folium launch-site map", "Plotly Dash dashboard"], []),
-        5: ("Predict landing", ["LogReg, SVM, Tree, KNN", "tuned with GridSearchCV"], []),
-    }),
+out, icons, SEGS, BADGES = [], [], [], []
+N, BOX, USED = {}, {}, set()
+
+
+def add(s):
+    out.append(s)
+
+
+def esc(t):
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def est_w(s, size):
+    return len(s) * size * 0.53
+
+
+def text(x, y, s, size=13, weight=400, color=INK, anchor="middle", halo=False):
+    h = (' stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round" paint-order="stroke"'
+         if halo else "")
+    add(f'<text x="{x}" y="{y}" font-family="{FONT}" font-size="{size}" '
+        f'font-weight="{weight}" fill="{color}" text-anchor="{anchor}"{h}>{esc(s)}</text>')
+
+
+_cache = {}
+
+
+def data(rel):
+    if rel not in _cache:
+        with open(os.path.join(R, rel), "rb") as fh:
+            _cache[rel] = "data:image/png;base64," + base64.b64encode(fh.read()).decode()
+    return _cache[rel]
+
+
+def glyph(kind, cx, cy):
+    """Stroke-only outline glyph (no fill) for parts with no official icon."""
+    x, y = cx - HALF, cy - HALF
+    st = f'fill="none" stroke="{LINE}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"'
+    if kind == "globe":  # web page or internet source
+        add(f'<circle cx="{cx}" cy="{cy}" r="22" {st}/>')
+        add(f'<ellipse cx="{cx}" cy="{cy}" rx="10" ry="22" {st}/>')
+        add(f'<path d="M {cx-22},{cy} L {cx+22},{cy} M {cx-19},{cy-11} L {cx+19},{cy-11} '
+            f'M {cx-19},{cy+11} L {cx+19},{cy+11}" {st}/>')
+    elif kind == "table":  # tabular output
+        add(f'<rect x="{x+4}" y="{y+8}" width="44" height="36" rx="3" {st}/>')
+        add(f'<path d="M {x+4},{y+20} L {x+48},{y+20} M {x+4},{y+32} L {x+48},{y+32} '
+            f'M {x+20},{y+8} L {x+20},{y+44}" {st}/>')
+    elif kind == "script":  # script or code stage
+        add(f'<rect x="{x+3}" y="{y+8}" width="46" height="36" rx="3" {st}/>')
+        add(f'<path d="M {x+11},{y+18} L {x+19},{y+26} L {x+11},{y+34} M {x+23},{y+34} '
+            f'L {x+37},{y+34}" {st}/>')
+    elif kind == "chart":  # charts
+        add(f'<path d="M {x+4},{y+6} L {x+4},{y+46} L {x+48},{y+46}" {st}/>')
+        add(f'<rect x="{x+12}" y="{y+22}" width="9" height="24" {st}/>')
+        add(f'<rect x="{x+26}" y="{y+12}" width="9" height="34" {st}/>')
+        add(f'<rect x="{x+40}" y="{y+30}" width="6" height="16" {st}/>')
+    elif kind == "doc":  # data file
+        add(f'<path d="M {x+10},{y+4} L {x+34},{y+4} L {x+44},{y+14} L {x+44},{y+48} L {x+10},{y+48} Z '
+            f'M {x+34},{y+4} L {x+34},{y+14} L {x+44},{y+14}" {st}/>')
+        add(f'<path d="M {x+17},{y+24} L {x+37},{y+24} M {x+17},{y+32} L {x+37},{y+32} '
+            f'M {x+17},{y+40} L {x+31},{y+40}" {st}/>')
+    elif kind == "trash":  # discard
+        add(f'<path d="M {x+8},{y+12} L {x+44},{y+12} M {cx-6},{y+12} L {cx-6},{y+6} L {cx+6},{y+6} '
+            f'L {cx+6},{y+12} M {x+12},{y+12} L {x+15},{y+48} L {x+37},{y+48} L {x+40},{y+12} '
+            f'M {cx-6},{y+20} L {cx-6},{y+40} M {cx+6},{y+20} L {cx+6},{y+40}" {st}/>')
+    elif kind == "folder":  # folder of files
+        add(f'<path d="M {x+4},{y+12} L {x+20},{y+12} L {x+25},{y+17} L {x+48},{y+17} L {x+48},{y+44} '
+            f'L {x+4},{y+44} Z M {x+4},{y+22} L {x+48},{y+22}" {st}/>')
+    elif kind == "flow":  # router or selector
+        add(f'<rect x="{x+4}" y="{y+20}" width="16" height="12" rx="2" {st}/>')
+        add(f'<rect x="{x+32}" y="{y+6}" width="16" height="12" rx="2" {st}/>')
+        add(f'<rect x="{x+32}" y="{y+34}" width="16" height="12" rx="2" {st}/>')
+        add(f'<path d="M {x+20},{y+26} L {x+26},{y+26} L {x+26},{y+12} L {x+32},{y+12} '
+            f'M {x+26},{y+26} L {x+26},{y+40} L {x+32},{y+40}" {st}/>')
+    elif kind == "person":  # a person at their own computer
+        add(f'<circle cx="{cx}" cy="{y+15}" r="9" {st}/>')
+        add(f'<path d="M {x+8},{y+48} C {x+8},{y+34} {x+16},{y+28} {cx},{y+28} C {x+36},{y+28} '
+            f'{x+44},{y+34} {x+44},{y+48}" {st}/>')
+    elif kind == "notebook":  # Jupyter notebook
+        add(f'<rect x="{x+12}" y="{y+4}" width="34" height="44" rx="3" {st}/>')
+        for i in range(4):
+            add(f'<circle cx="{x+12}" cy="{y+12+i*10}" r="3" {st}/>')
+        add(f'<path d="M {x+21},{y+16} L {x+39},{y+16} M {x+21},{y+24} L {x+39},{y+24} '
+            f'M {x+21},{y+32} L {x+33},{y+32}" {st}/>')
+    elif kind == "dashboard":  # web dashboard
+        add(f'<rect x="{x+3}" y="{y+6}" width="46" height="40" rx="3" {st}/>')
+        add(f'<path d="M {x+3},{y+14} L {x+49},{y+14}" {st}/>')
+        add(f'<circle cx="{x+16}" cy="{y+30}" r="9" {st}/>')
+        add(f'<path d="M {x+16},{y+21} L {x+16},{y+30} L {x+25},{y+30}" {st}/>')
+        add(f'<path d="M {x+31},{y+40} L {x+31},{y+32} M {x+37},{y+40} L {x+37},{y+24} '
+            f'M {x+43},{y+40} L {x+43},{y+28}" {st}/>')
+    elif kind == "dataset":  # stored dataset (cylinder)
+        add(f'<ellipse cx="{cx}" cy="{y+11}" rx="18" ry="6" {st}/>')
+        add(f'<path d="M {x+8},{y+11} L {x+8},{y+41} A 18,6 0 0 0 {x+44},{y+41} L {x+44},{y+11} '
+            f'M {x+8},{y+26} A 18,6 0 0 0 {x+44},{y+26}" {st}/>')
+    elif kind == "model":  # ML model (decision tree)
+        add(f'<rect x="{cx-8}" y="{y+4}" width="16" height="12" rx="2" {st}/>')
+        add(f'<rect x="{x+4}" y="{y+36}" width="16" height="12" rx="2" {st}/>')
+        add(f'<rect x="{x+32}" y="{y+36}" width="16" height="12" rx="2" {st}/>')
+        add(f'<path d="M {cx},{y+16} L {cx},{y+26} M {x+12},{y+26} L {x+40},{y+26} '
+            f'M {x+12},{y+26} L {x+12},{y+36} M {x+40},{y+26} L {x+40},{y+36}" {st}/>')
+    elif kind == "map":  # folded map with a pin
+        add(f'<path d="M {x+4},{y+10} L {x+18},{y+4} L {x+34},{y+10} L {x+48},{y+4} L {x+48},{y+42} '
+            f'L {x+34},{y+48} L {x+18},{y+42} L {x+4},{y+48} Z M {x+18},{y+4} L {x+18},{y+42} '
+            f'M {x+34},{y+10} L {x+34},{y+48}" {st}/>')
+        add(f'<path d="M {x+26},{y+32} C {x+20},{y+24} {x+20},{y+20} {x+20},{y+19} A 6,6 0 0 1 '
+            f'{x+32},{y+19} C {x+32},{y+20} {x+32},{y+24} {x+26},{y+32} Z" {st}/>')
+    elif kind == "api":  # REST API
+        add(f'<rect x="{x+3}" y="{y+10}" width="46" height="32" rx="3" {st}/>')
+        add(f'<path d="M {x+19},{y+17} C {x+13},{y+17} {x+16},{cy} {x+11},{cy} C {x+16},{cy} '
+            f'{x+13},{y+35} {x+19},{y+35} M {x+33},{y+17} C {x+39},{y+17} {x+36},{cy} {x+41},{cy} '
+            f'C {x+36},{cy} {x+39},{y+35} {x+33},{y+35}" {st}/>')
+    elif kind == "gear":  # processing engine
+        add(f'<circle cx="{cx}" cy="{cy}" r="15" {st}/>')
+        add(f'<circle cx="{cx}" cy="{cy}" r="6" {st}/>')
+        teeth = " ".join(
+            f'M {cx + 15 * math.cos(a):.1f},{cy + 15 * math.sin(a):.1f} '
+            f'L {cx + 22 * math.cos(a):.1f},{cy + 22 * math.sin(a):.1f}'
+            for a in (i * math.pi / 4 for i in range(8)))
+        add(f'<path d="{teeth}" {st}/>')
+    elif kind == "mask":  # masked card number
+        add(f'<rect x="{x+3}" y="{y+10}" width="46" height="32" rx="3" {st}/>')
+        add(f'<path d="M {x+3},{y+19} L {x+49},{y+19}" {st}/>')
+        marks = " ".join(f'M {x+9+i*8},{y+28} L {x+14+i*8},{y+33} M {x+14+i*8},{y+28} '
+                         f'L {x+9+i*8},{y+33}' for i in range(3))
+        add(f'<path d="{marks} M {x+36},{y+31} L {x+44},{y+31}" {st}/>')
+    elif kind == "convert":  # type conversion
+        add(f'<path d="M {x+6},{y+18} L {x+44},{y+18} M {x+37},{y+11} L {x+44},{y+18} L {x+37},{y+25} '
+            f'M {x+46},{y+34} L {x+8},{y+34} M {x+15},{y+27} L {x+8},{y+34} L {x+15},{y+41}" {st}/>')
+    elif kind == "calc":  # expression evaluator
+        add(f'<rect x="{x+10}" y="{y+4}" width="32" height="44" rx="3" {st}/>')
+        add(f'<rect x="{x+15}" y="{y+9}" width="22" height="9" {st}/>')
+        for r_ in range(3):
+            for c_ in range(3):
+                add(f'<rect x="{x+15+c_*8}" y="{y+23+r_*8}" width="5" height="5" {st}/>')
+    elif kind == "sql":  # SQL query
+        add(f'<ellipse cx="{cx}" cy="{y+11}" rx="18" ry="6" {st}/>')
+        add(f'<path d="M {x+8},{y+11} L {x+8},{y+41} A 18,6 0 0 0 {x+44},{y+41} L {x+44},{y+11}" {st}/>')
+        add(f'<path d="M {x+16},{y+26} L {x+22},{y+31} L {x+16},{y+36} M {x+26},{y+36} L {x+36},{y+36}" {st}/>')
+    else:
+        raise ValueError(kind)
+
+
+def label_h(n):
+    """Height of the label block below an icon with n lines (name, then role lines)."""
+    return 21 + 15 * (n - 1)
+
+
+def node(key, rel, cx, cy, l1, *roles):
+    """Register an icon (official PNG, or 'glyph:<kind>') at slot (cx, cy) with labels.
+    roles = up to two grey role lines under the name."""
+    assert key not in N, key
+    assert len(roles) <= 2, key
+    N[key] = (cx, cy, 1 + len(roles))
+    icons.append((rel, cx, cy, l1, roles))
+    w = max([ICON, est_w(l1, 13)] + [est_w(r, 12) for r in roles])
+    BOX[key] = (cx - w / 2, cy - HALF, cx + w / 2, cy + HALF + label_h(1 + len(roles)))
+
+
+def draw_nodes():
+    for rel, cx, cy, l1, roles in icons:
+        if rel.startswith("glyph:"):
+            glyph(rel[6:], cx, cy)
+        else:
+            add(f'<image x="{cx-HALF}" y="{cy-HALF}" width="{ICON}" height="{ICON}" '
+                f'xlink:href="{data(rel)}"/>')
+        text(cx, cy + HALF + 17, l1, 13, 400, INK)
+        for i, r in enumerate(roles):
+            text(cx, cy + HALF + 32 + 15 * i, r, 12, 400, TEXT2)
+
+
+def port(key, side, gap=5):
+    """Connection point: l, r, t (top edge of icon), b (below the label block)."""
+    cx, cy, n = N[key]
+    return {"l": (cx - HALF - gap, cy), "r": (cx + HALF + gap, cy),
+            "t": (cx, cy - HALF - gap),
+            "b": (cx, cy + HALF + label_h(n) + gap)}[side]
+
+
+def path(pts, a, b, kind="service"):
+    color, width, dash, marker, _ = KINDS[kind]
+    USED.add(kind)
+    for p, q in zip(pts, pts[1:]):
+        assert p[0] == q[0] or p[1] == q[1], ("diagonal segment", a, b, p, q)
+        SEGS.append((p, q, a, b))
+    d = "M " + " L ".join(f"{x},{y}" for x, y in pts)
+    da = f' stroke-dasharray="{dash}"' if dash else ""
+    add(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}"{da} '
+        f'marker-end="url(#{marker})"/>')
+
+
+def link(a, sa, b, sb, kind="service", via=None, end=None):
+    """Connect two nodes. via = elbow points; end overrides the target point."""
+    path([port(a, sa)] + (via or []) + [end or port(b, sb)], a, b, kind)
+
+
+def badge(cx, cy, n, record=True):
+    if record:
+        BADGES.append((cx, cy, n))
+    add(f'<rect x="{cx-12}" y="{cy-12}" width="24" height="24" rx="3" fill="{BADGE}"/>')
+    text(cx, cy + 4.6, str(n), 13, 700, "#FFFFFF")
+
+
+def group(x0, y0, x1, y1, title):
+    add(f'<rect x="{x0}" y="{y0}" width="{x1-x0}" height="{y1-y0}" fill="none" '
+        f'stroke="{GROUP}" stroke-width="1.3" stroke-dasharray="5 4"/>')
+    text(x0 + 14, y0 + 25, title, 14.5, 700, INK, "start")
+
+
+def tile(kind, tx, ty):
+    """24 px boundary tile: an official icon (path), or a stroke-only glyph scaled down."""
+    if "/" in kind:
+        add(f'<image x="{tx}" y="{ty}" width="24" height="24" xlink:href="{data(kind)}"/>')
+        return
+    add(f'<g transform="translate({tx},{ty}) scale({24 / ICON})">')
+    glyph(kind, HALF, HALF)
+    add('</g>')
+
+
+# ---------------- canvas and boundary ----------------
+add(f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+    f'width="{W}" height="{H}" viewBox="0 0 {W} {H}">')
+add('<defs>'
+    '<marker id="ah" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6.5" '
+    f'markerHeight="6.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="{LINE}"/></marker>'
+    '<marker id="ahb" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5" '
+    f'markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="{ACCENT}"/></marker>'
+    '</defs>')
+add(f'<rect width="{W}" height="{H}" fill="#FFFFFF"/>')
+text(40, 52, TITLE, 26, 700, INK, "start")
+text(40, 78, SUBTITLE, 14, 400, TEXT2, "start")
+add(f'<rect x="{AX0}" y="{AY0}" width="{AX1-AX0}" height="{AY1-AY0}" fill="none" '
+    f'stroke="{INK}" stroke-width="1.6"/>')
+tile(TILE, AX0 + 6, AY0 + 5)
+add(f'<text x="{AX0+38}" y="{AY0+22}" font-family="{FONT}" font-size="14.5" '
+    f'font-weight="700" fill="{INK}">{esc(CLOUD)}<tspan dx="10" font-weight="400" '
+    f'fill="{TEXT2}">{esc(REGION)}</tspan></text>')
+
+# ---------------- EDIT: stage headers (one per slot column) ----------------
+TITLE_BOX = []  # group titles and stage headers; lines must stay clear of these
+for x, s in zip(SX, STAGES):
+    text(x, HY, s, 13, 700, TEXT2)
+    TITLE_BOX.append((x - est_w(s, 13) / 2, HY - 13, x + est_w(s, 13) / 2, HY + 3))
+
+# ---------------- EDIT: groups (one per project lane, with its runtime tile) ----------------
+for (y0, y1), title, sub, tl in zip(LANES, [
+    "01 Creating and Processing Data Pipeline",
+    "02 Data Science Collection",
+    "03 SpaceX Falcon-9",
+], [
+    "StreamSets in an Ubuntu VM on VMware Workstation",
+    "Python 3 and Jupyter notebooks",
+    "Python 3 notebooks and a Dash app",
+], ["generic/os/ubuntu.png", "programming/language/python.png", "programming/language/python.png"]):
+    x0, x1 = COLS[0]
+    add(f'<rect x="{x0}" y="{y0}" width="{x1-x0}" height="{y1-y0}" fill="none" '
+        f'stroke="{GROUP}" stroke-width="1.3" stroke-dasharray="5 4"/>')
+    tile(tl, x0 + 10, y0 + 8)
+    add(f'<text x="{x0+42}" y="{y0+25}" font-family="{FONT}" font-size="14.5" '
+        f'font-weight="700" fill="{INK}">{esc(title)}<tspan dx="10" font-weight="400" '
+        f'fill="{TEXT2}">{esc(sub)}</tspan></text>')
+    TITLE_BOX.append((x0 + 10, y0 + 8, x0 + 52 + est_w(title, 14.5) + est_w(sub, 14.5), y0 + 32))
+
+# ---------------- EDIT: nodes (one per stage slot, in each project lane) ----------------
+Y1, Y2, Y3 = LY_
+# 01 Creating and Processing Data Pipeline (no analyze or model stage)
+node("taxi", "glyph:doc", SX[0], Y1, "NYC taxi CSV", "sample trip data", "Directory origin")
+node("sdc", "glyph:gear", SX[1], Y1, "StreamSets Data Collector", "version 3.22.3", "Ubuntu VM on VMware")
+node("stages", "glyph:mask", SX[2], Y1, "Pipeline stages", "Stream Selector, Jython,",
+     "Field Masker, converters")
+node("fs", "glyph:folder", SX[3], Y1, "Local FS", "masked out_ files", "non-card rows to Trash")
+# 02 Data Science Collection
+node("src2", "glyph:globe", SX[0], Y2, "APIs, web pages, CSVs", "SpaceX API, Wikipedia,",
+     "yfinance, course data")
+node("col2", "glyph:notebook", SX[1], Y2, "Collect", "requests, BeautifulSoup,",
+     "pandas.read_html, yfinance")
+node("pd2", "glyph:table", SX[2], Y2, "pandas", "clean and reshape", "DataFrames to CSV")
+node("db2b", "programming/language/sql.png", SX[3], Y2, "IBM Db2 on Cloud", "SQL EDA with %sql",
+     "SpaceX notebooks")
+node("viz2", "glyph:chart", SX[4], Y2, "Charts and dashboards", "seaborn, matplotlib, Plotly,",
+     "Folium map, Dash: SpaceX, Airline")
+node("ml2", "glyph:model", SX[5], Y2, "scikit-learn", "landing classifiers",
+     "house price regression")
+# 03 SpaceX Falcon-9
+node("src3", "glyph:api", SX[0], Y3, "SpaceX REST API v4", "Wikipedia Falcon 9", "launch tables")
+node("col3", "glyph:notebook", SX[1], Y3, "Collect", "requests, BeautifulSoup,",
+     "dataset_part_1.csv, spacex_web_scraped.csv")
+node("wr3", "glyph:notebook", SX[2], Y3, "Wrangle with pandas", "Class landing label, one-hot",
+     "dataset_part_2/3.csv")
+node("db2c", "programming/language/sql.png", SX[3], Y3, "IBM Db2 on Cloud", "SQL EDA queries")
+node("viz3", "glyph:map", SX[4], Y3, "Visualize", "seaborn, matplotlib,",
+     "Folium launch-site map, Dash")
+node("ml3", "glyph:model", SX[5], Y3, "Predict landing", "LogReg, SVM, Tree, KNN",
+     "tuned with GridSearchCV")
+
+# ---------------- EDIT: connections ----------------
+for chain in (["taxi", "sdc", "stages", "fs"],
+              ["src2", "col2", "pd2", "db2b", "viz2", "ml2"],
+              ["src3", "col3", "wr3", "db2c", "viz3", "ml3"]):
+    link(chain[0], "r", chain[1], "l", "external")
+    for a, b in zip(chain[1:], chain[2:]):
+        link(a, "r", b, "l")
+
+# ---------------- EDIT: line labels (white halo keeps them readable over lines) ----------------
+text(SX[4] + 160, Y1 + 4, "No analysis or model stage in this project", 12, 400, TEXT2)
+
+draw_nodes()
+
+# ---------------- EDIT: step badges (x, y, number), in the gutter just above their line ----------------
+MID = [round((a + b) / 2) for a, b in zip(SX[1:], SX[2:])]  # 570 890 1210 1530
+BY = 44  # badge center sits this far above the line, clear of icons and labels
+for cx, cy, n in [(300, Y1 - BY, 1), (MID[1], Y1 - BY, 2),
+                  (300, Y2 - BY, 3), (MID[1], Y2 - BY, 4), (MID[3], Y2 - BY, 5),
+                  (300, Y3 - BY, 6), (MID[1], Y3 - BY, 7), (MID[3], Y3 - BY, 8)]:
+    badge(cx, cy, n)
+
+# ---------------- EDIT: legend, one short sentence per badge ----------------
+LY = AY1 + 55
+STEPS = [
+    "01: StreamSets Data Collector in an Ubuntu VM reads the NYC taxi CSV through a Directory origin.",
+    "Card rows get Jython, Field Masker, and converters, then land as masked out_ files; other rows go to Trash.",
+    "02: notebooks collect from the SpaceX API, Wikipedia, yfinance, stock pages, and course CSVs.",
+    "pandas cleans and reshapes the DataFrames to CSV, and the SpaceX data is queried in IBM Db2 with %sql.",
+    "Charts and Dash dashboards explore the data; scikit-learn trains landing classifiers and a price regression.",
+    "03: the Falcon-9 notebooks pull the SpaceX REST API v4 and scrape the Wikipedia Falcon 9 launch tables.",
+    "Wrangling adds the Class landing label and one-hot features, then SQL EDA runs on IBM Db2 on Cloud.",
+    "Charts, a Folium launch-site map, and a Dash app lead to 4 landing models tuned with GridSearchCV.",
 ]
 
+# ---------------- legend and key ----------------
+text(40, LY, "How it works", 16, 700, INK, "start")
+per_col = (len(STEPS) + 1) // 2
+for i, s in enumerate(STEPS):
+    col, row = divmod(i, per_col)
+    bx, by = 52 + col * 920, LY + 32 + row * 30
+    badge(bx, by, i + 1, record=False)
+    text(bx + 22, by + 4.6, s, 13.5, 400, INK, "start")
+    if est_w(s, 13.5) > 880:
+        print("legend line too long:", i + 1)
+
+# line-style key, one entry per line kind actually used
+KEY_Y = LY + 36 + per_col * 30
+lx = 40
+for k, (color, width, dash, marker, label) in KINDS.items():
+    if k not in USED:
+        continue
+    da = f' stroke-dasharray="{dash}"' if dash else ""
+    add(f'<path d="M {lx},{KEY_Y} L {lx+52},{KEY_Y}" stroke="{color}" stroke-width="{width}"'
+        f'{da} marker-end="url(#{marker})"/>')
+    text(lx + 62, KEY_Y + 4.5, label, 12.5, 400, TEXT2, "start")
+    lx += 62 + est_w(label, 12.5) + 48
+
+# footer: hairline, owner on the left, month and year on the right
+FY = KEY_Y + 40
+add(f'<path d="M 40,{FY} L {W-40},{FY}" stroke="{RULE}" stroke-width="1"/>')
+text(40, FY + 24, FOOTER_L, 12.5, 400, TEXT2, "start")
+text(W - 40, FY + 24, FOOTER_R, 12.5, 400, TEXT2, "end")
+add("</svg>")
+assert FY + 40 <= H, "canvas too short for the legend and footer: raise H"
+
+
+# ---------------- checks ----------------
+def seg_hits_box(p, q, box, pad=2):
+    x0, y0, x1, y1 = box
+    (ax, ay), (bx, by) = p, q
+    if ay == by:
+        lo, hi = sorted((ax, bx))
+        return y0 - pad < ay < y1 + pad and lo < x1 + pad and hi > x0 - pad
+    lo, hi = sorted((ay, by))
+    return x0 - pad < ax < x1 + pad and lo < y1 + pad and hi > y0 - pad
+
+
+def boxes_overlap(a, b):
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def crossings():
+    hs = [s for s in SEGS if s[0][1] == s[1][1]]
+    vs = [s for s in SEGS if s[0][0] == s[1][0]]
+    found = []
+    for hp, hq, ha, hb in hs:
+        y = hp[1]
+        x0, x1 = sorted((hp[0], hq[0]))
+        for vp, vq, va, vb in vs:
+            if (ha, hb) == (va, vb):
+                continue
+            x = vp[0]
+            y0, y1 = sorted((vp[1], vq[1]))
+            if x0 < x < x1 and y0 < y < y1:
+                found.append(f"{ha}->{hb} x {va}->{vb}")
+    return found
+
+
+def shared_segments():
+    found = []
+    for i in range(len(SEGS)):
+        for j in range(i + 1, len(SEGS)):
+            (p, q, a, b), (r, s, c, d) = SEGS[i], SEGS[j]
+            if (a, b) == (c, d):
+                continue
+            if p[1] == q[1] == r[1] == s[1]:
+                lo1, hi1 = sorted((p[0], q[0]))
+                lo2, hi2 = sorted((r[0], s[0]))
+            elif p[0] == q[0] == r[0] == s[0]:
+                lo1, hi1 = sorted((p[1], q[1]))
+                lo2, hi2 = sorted((r[1], s[1]))
+            else:
+                continue
+            if min(hi1, hi2) - max(lo1, lo2) > 0:
+                found.append(f"{a}->{b} shares a segment with {c}->{d}")
+    return found
+
+
 problems = []
+for p, q, a, b in SEGS:
+    for k, box in BOX.items():
+        if k not in (a, b) and seg_hits_box(p, q, box):
+            problems.append(f"line {a}->{b} crosses {k}")
+keys = list(BOX)
+for i in range(len(keys)):
+    for j in range(i + 1, len(keys)):
+        if boxes_overlap(BOX[keys[i]], BOX[keys[j]]):
+            problems.append(f"label overlap {keys[i]} / {keys[j]}")
+for cx, cy, n in BADGES:
+    bb = (cx - 12, cy - 12, cx + 12, cy + 12)
+    for p, q, a, b in SEGS:
+        if seg_hits_box(p, q, bb, pad=1):
+            problems.append(f"badge {n} sits on line {a}->{b}")
+    for k, box in BOX.items():
+        if boxes_overlap(bb, box):
+            problems.append(f"badge {n} overlaps {k}")
+for k, (x0, y0, x1, y1) in BOX.items():
+    for (c0, c1) in COLS:
+        if c0 < (x0 + x1) / 2 < c1 and (x0 < c0 + 4 or x1 > c1 - 4):
+            problems.append(f"label of {k} touches its group border")
+for i, tb in enumerate(TITLE_BOX):
+    for p, q, a, b in SEGS:
+        if seg_hits_box(p, q, tb):
+            problems.append(f"line {a}->{b} crosses group title or stage header {i}")
+    for k, box in BOX.items():
+        if boxes_overlap(tb, box):
+            problems.append(f"title or header {i} overlaps {k}")
+problems += shared_segments()
+X = crossings()
+if X:
+    problems.append(f"{len(X)} line crossings")
 
-
-def text_w(s, size, bold=False):
-    """Conservative width estimate for Helvetica."""
-    return len(s) * size * (0.60 if bold else 0.55)
-
-
-def wrap(title, limit=14):
-    lines, cur = [], ""
-    for w_ in title.split(" "):
-        if cur and len(cur) + 1 + len(w_) > limit:
-            lines.append(cur)
-            cur = w_
-        else:
-            cur = (cur + " " + w_).strip()
-    return lines + [cur]
-
-
-def inside(inner, outer):
-    x, y, w, h = inner
-    ox, oy, ow, oh = outer
-    return x >= ox and y >= oy and x + w <= ox + ow and y + h <= oy + oh
-
-
-def overlap(a, b):
-    return not (a[0] + a[2] <= b[0] or b[0] + b[2] <= a[0] or a[1] + a[3] <= b[1] or b[1] + b[3] <= a[1])
-
-
-def href(name):
-    return "data:image/png;base64," + base64.b64encode(LOGOS[name].read_bytes()).decode()
-
-
-def box(x, y, h, title, lines, logos, texts):
-    out = [f'<rect x="{x}" y="{y}" width="{BOX_W}" height="{h}" fill="none" stroke="{INK}" stroke-width="1.3"/>']
-    rect = (x, y, BOX_W, h)
-    logo_w = len(logos) * (LOGO + 4)
-    for i, name in enumerate(logos):
-        lx = x + BOX_W - 8 - (len(logos) - i) * (LOGO + 4) + 4
-        out.append(f'<image x="{lx}" y="{y + 8}" width="{LOGO}" height="{LOGO}" href="{href(name)}"/>')
-    tb = (x + 10, y + 10, text_w(title, 14, True), 16)
-    if tb[2] > BOX_W - 20 - logo_w:
-        problems.append(f"title too wide: {title}")
-    texts.append(tb)
-    out.append(f'<text x="{x + 10}" y="{y + 24}" class="bt">{escape(title)}</text>')
-    for i, ln in enumerate(lines):
-        ty = y + 46 + i * 17
-        lb = (x + 10, ty - 12, text_w(ln, 12), 15)
-        if not inside(lb, (x + 1, y + 1, BOX_W - 2, h - 2)):
-            problems.append(f"line clipped: {ln}")
-        texts.append(lb)
-        out.append(f'<text x="{x + 10}" y="{ty}" class="bl">{escape(ln)}</text>')
-    return out, rect
-
-
-def build():
-    max_lines = max(len(v[1]) for _, st in LANES for v in st.values())
-    box_h = 46 + (max_lines - 1) * 17 + 14
-    lane_h = box_h + 2 * BOX_PAD
-    legend_y = TOP + len(LANES) * (lane_h + LANE_GAP) + 10
-    height = legend_y + 40
-
-    s = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{height}" viewBox="0 0 {W} {height}">',
-         f'<style>text{{font-family:{FONT};fill:{INK}}}'
-         '.t{font-size:26px;font-weight:700}'
-         f'.st{{font-size:14px;fill:{BODY}}}'
-         f'.h{{font-size:13px;font-weight:700;fill:{BODY};letter-spacing:0.3px}}'
-         '.lt{font-size:14.5px;font-weight:700}'
-         '.bt{font-size:14px;font-weight:700}'
-         f'.bl{{font-size:12px;fill:{BODY}}}</style>',
-         f'<defs><marker id="a" markerWidth="9" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">'
-         f'<path d="M0,0 L9,4 L0,8 z" fill="{LINE}"/></marker></defs>',
-         '<text x="20" y="44" class="t">Data Science Set: how data flows through the 3 projects</text>',
-         '<text x="20" y="70" class="st">Read each lane left to right: where the data comes from, how it is collected and cleaned, '
-         'where it is stored or queried, and how it is visualized and modeled.</text>']
-
-    texts, boxes, segs = [], [], []
-    for i, name in enumerate(STAGES):
-        cx = COL_X0 + i * COL_W + BOX_W / 2
-        texts.append((cx - text_w(name, 13, True) / 2, TOP - 30, text_w(name, 13, True), 16))
-        s.append(f'<text x="{cx}" y="{TOP - 16}" text-anchor="middle" class="h">{escape(name)}</text>')
-
-    y = TOP
-    for title, stages in LANES:
-        lane = (LANE_X, y, LANE_W, lane_h)
-        s.append(f'<rect x="{LANE_X}" y="{y}" width="{LANE_W}" height="{lane_h}" fill="none" '
-                 f'stroke="{GROUP}" stroke-width="1.3" stroke-dasharray="5 4"/>')
-        lines = wrap(title)
-        for j, ln in enumerate(lines):
-            ty = y + 30 + j * 19
-            tb = (LABEL_X, ty - 13, text_w(ln, 14.5, True), 17)
-            if tb[2] > LABEL_W or not inside(tb, lane):
-                problems.append(f"lane title clipped: {ln}")
-            texts.append(tb)
-            s.append(f'<text x="{LABEL_X}" y="{ty}" class="lt">{escape(ln)}</text>')
-        by = y + BOX_PAD
-        idx = sorted(stages)
-        for k in idx:
-            out, rect = box(COL_X0 + k * COL_W, by, box_h, *stages[k], texts)
-            if not inside(rect, lane):
-                problems.append(f"box outside lane: {stages[k][0]}")
-            boxes.append(rect)
-            s += out
-        for a, b in zip(idx, idx[1:]):
-            x1 = COL_X0 + a * COL_W + BOX_W
-            x2 = COL_X0 + b * COL_W
-            ly = by + box_h / 2
-            segs.append((x1, ly, x2, ly))
-            s.append(f'<line x1="{x1}" y1="{ly}" x2="{x2}" y2="{ly}" stroke="{LINE}" stroke-width="1.6" marker-end="url(#a)"/>')
-        y += lane_h + LANE_GAP
-
-    # Key below the lanes
-    ky = legend_y + 10
-    s.append(f'<line x1="20" y1="{ky}" x2="60" y2="{ky}" stroke="{LINE}" stroke-width="1.6" marker-end="url(#a)"/>')
-    s.append(f'<text x="70" y="{ky + 5}" class="st">Data flows to the next stage</text>')
-    s.append(f'<image x="320" y="{ky - 11}" width="{LOGO}" height="{LOGO}" href="{href("python")}"/>')
-    s.append(f'<text x="350" y="{ky + 5}" class="st">Python step. The Ubuntu logo marks the pipeline VM. '
-             'Other tools are labeled boxes.</text>')
-    s.append("</svg>")
-
-    # Layout checks
-    for i, a in enumerate(boxes):
-        if a[0] + a[2] > W - 20 or a[1] + a[3] > height:
-            problems.append("box clipped by canvas")
-        for b in boxes[i + 1:]:
-            if overlap(a, b):
-                problems.append("boxes overlap")
-    for x1, y1, x2, y2 in segs:
-        if x1 != x2 and y1 != y2:
-            problems.append("non-orthogonal line")
-        seg_box = (min(x1, x2), min(y1, y2) - 1, abs(x2 - x1), abs(y2 - y1) + 2)
-        if x2 - x1 < 20:
-            problems.append("line too short for arrowhead")
-        for t in texts:
-            if overlap(seg_box, t):
-                problems.append("line through label")
-        for b in boxes:
-            if overlap((seg_box[0] + 1, seg_box[1], seg_box[2] - 2, seg_box[3]), b):
-                problems.append("line through box")
-    crossings = 0
-    for i, (ax1, ay1, ax2, ay2) in enumerate(segs):
-        for bx1, by1, bx2, by2 in segs[i + 1:]:
-            if ay1 == by1 and max(ax1, bx1) < min(ax2, bx2):
-                problems.append("shared segment")
-
-    svg = "\n".join(s)
-    for bad in ("\u2014", "\u2013"):
-        assert bad not in svg, "em or en dash in output"
-    SVG_OUT.write_text(svg, encoding="utf-8")
-    subprocess.run([RSVG, "-w", str(W), "-o", str(PNG_OUT), str(SVG_OUT)], check=True)
-    print(f"layout problems: {', '.join(problems) if problems else 'none'}")
-    print(f"crossings: {crossings}")
-    return not problems
-
-
-if __name__ == "__main__":
-    ok = build()
-    print(SVG_OUT)
-    print(PNG_OUT)
-    sys.exit(0 if ok else 1)
+svg = "\n".join(out)
+assert "\u2014" not in svg and "\u2013" not in svg, "em or en dash found"
+with open(OUT_SVG, "w") as fh:
+    fh.write(svg)
+subprocess.run(["rsvg-convert", "-z", str(ZOOM), "-o", OUT_PNG, OUT_SVG], check=True)
+print("nodes:", len(N), "segments:", len(SEGS), "badges:", len(BADGES))
+print("crossings:", len(X), *X)
+print("layout problems:", problems if problems else "none")
+print("wrote", OUT_SVG, "and", OUT_PNG)
