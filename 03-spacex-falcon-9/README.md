@@ -2,6 +2,9 @@
 
 SpaceX lists a Falcon 9 launch at about 62 million dollars, while other providers charge 165 million dollars or more, mostly because SpaceX reuses the first stage. This capstone predicts whether the first stage will land, which is a good proxy for the cost of a launch.
 
+![SpaceX Falcon-9 architecture](assets/architecture.png)
+The diagram shows the capstone end to end: collect from the SpaceX API and Wikipedia, wrangle, explore with SQL and charts, map, serve the Dash dashboard, and train the tuned classifiers.
+
 Questions the project answers:
 
 - How do payload mass, launch site, number of flights, and orbit affect landing success?
