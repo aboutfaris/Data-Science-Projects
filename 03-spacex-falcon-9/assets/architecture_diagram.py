@@ -326,7 +326,7 @@ link("dash", "r", "you", "l", "external")
 LBL = 11.5
 text(520, A1 - 8, "dataset_part_1.csv", LBL, 400, TEXT2, "middle", halo=True)
 text(950, A1 - 8, "dataset_part_2.csv", LBL, 400, TEXT2, "middle", halo=True)
-text(1020, 440, "dataset_part_3.csv", LBL, 400, TEXT2, "middle", halo=True)
+text(1078, 440, "dataset_part_3.csv", LBL, 400, TEXT2, "end", halo=True)
 text(1640, B1 - 8, "dash CSV", LBL, 400, TEXT2, "middle", halo=True)
 text(1443, G1 + 14, "geo CSV", LBL, 400, TEXT2, "middle", halo=True)
 

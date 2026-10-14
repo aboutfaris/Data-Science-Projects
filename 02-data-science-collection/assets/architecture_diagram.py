@@ -40,7 +40,7 @@ KINDS = {  # stroke, width, dash, arrowhead marker, legend label
 }
 
 # ---------------- EDIT: canvas text ----------------
-W, H = 1900, 1010
+W, H = 1900, 1065
 TITLE = "02 Data Science Collection | Notebooks and Dash Dashboards"
 SUBTITLE = ("Practice projects grouped by data source and output: SpaceX launch notebooks, stock and "
             "housing notebooks, and two Dash dashboards.")
@@ -48,11 +48,12 @@ CLOUD, REGION = "Analysis environment", "Python 3 and Jupyter on your computer"
 TILE = "programming/language/python.png"
 
 # ---------------- EDIT: grid ----------------
-AX0, AX1, AY0, AY1 = 200, 1699, 110, 755             # the one boundary
+AX0, AX1, AY0, AY1 = 200, 1699, 110, 810             # the one boundary
 COLS = [(225, 688), (718, 1181), (1211, 1674)]        # group columns
 SL = [[round(x0 + (x1 - x0) * f) for f in (0.2, 0.5, 0.8)] for x0, x1 in COLS]  # icon slots
 R0, R1 = (150, 370), (400, 730)                       # rows
 A1, Q1, C1, D1 = 230, 340, 480, 640                   # icon lanes (center y); Q1 = SQL line lane
+G1, GX = 765, 1196                                    # gutter below row 2; column gutter x
 
 out, icons, SEGS, BADGES = [], [], [], []
 N, BOX, USED = {}, {}, set()
@@ -309,7 +310,7 @@ node("sx_ml", "glyph:model", SL[1][2], A1, "Machine Learning", "4 tuned classifi
 node("sx_dash", "glyph:dashboard", SL[2][2], A1, "SpaceX dashboard", "spacex_dash_app.py")
 node("tesla", "glyph:notebook", SL[0][0], C1, "Tesla notebooks", "yfinance, Plotly")
 node("nflx", "glyph:notebook", SL[0][0], D1, "Netflix V Amazon", "read_html, DataFrames")
-node("king", "glyph:model", SL[1][2], D1, "King County houses", "linear, ridge regression")
+node("king", "glyph:model", SL[1][2], D1, "King County houses", "linear, poly, ridge")
 node("air", "glyph:dashboard", SL[2][2], C1, "Airline dashboard", "Airline Analysis.py")
 
 # ---------------- EDIT: connections ----------------
@@ -321,20 +322,21 @@ link("sx_eda", "b", "db2", "l", "external", via=[(SL[1][0], Q1)])
 link("course1", "l", "sx_dash", "r")
 link("yf", "r", "tesla", "l")
 link("web", "r", "nflx", "l")
-link("web", "t", "tesla", "b", via=[(105, 578), (SL[0][0], 578)])
-link("course2", "l", "king", "r")
+link("web", "t", "tesla", "l", via=[(105, 578), (250, 578), (250, C1 + 14)],
+     end=(SL[0][0] - HALF - 5, C1 + 14))
+link("course2", "b", "king", "r", via=[(1800, G1), (GX, G1), (GX, D1)])
 link("course2", "t", "air", "r", via=[(1800, C1)])
 
 # ---------------- EDIT: line labels (white halo keeps them readable over lines) ----------------
 LBL = 11.5
 text(1300, Q1 - 8, "%sql queries", LBL, 400, TEXT2, "middle", halo=True)
-text(1300, D1 - 8, "house sales CSV", LBL, 400, TEXT2, "middle", halo=True)
+text(1443, G1 - 8, "house sales CSV", LBL, 400, TEXT2, "middle", halo=True)
 
 draw_nodes()
 
 # ---------------- EDIT: step badges (x, y, number), in a gutter beside their line ----------------
 for cx, cy, n in [(457, A1 + 30, 1), (1443, 312, 2), (950, A1 + 30, 3), (1655, 200, 4),
-                  (178, C1 - 28, 5), (178, D1 + 28, 6), (1300, D1 + 28, 7), (1655, C1 - 28, 8)]:
+                  (178, C1 - 28, 5), (178, D1 + 28, 6), (1300, G1 + 24, 7), (1655, C1 - 28, 8)]:
     badge(cx, cy, n)
 
 # ---------------- EDIT: legend, one short sentence per badge ----------------

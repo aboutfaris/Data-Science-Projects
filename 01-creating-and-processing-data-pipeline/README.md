@@ -3,7 +3,7 @@
 Run StreamSets Data Collector in an Ubuntu VM on Windows 10 (no dual boot) and build a pipeline that masks credit card numbers, converts field types, and adds calculated fields to the NYC taxi sample data. [Video walkthrough](https://www.youtube.com/watch?v=kqVJjWjjOyc)
 
 ![Creating and Processing Data Pipeline architecture](assets/architecture.png)
-The diagram shows the StreamSets pipeline inside the Ubuntu VM: the taxi CSV is split by payment type, card numbers are masked, field types are converted, and calculated fields are added before output.
+The diagram shows the StreamSets pipeline inside the Ubuntu VM: the taxi CSV is split by payment type; card records are masked and written to Local FS, and the other records get type conversion and calculated fields.
 
 StreamSets Data Collector is a lightweight engine for routing and processing data streams in real time. I first tried Windows Subsystem for Linux (WSL) through VS Code. It worked but took longer to set up, so this guide uses a VM instead.
 
